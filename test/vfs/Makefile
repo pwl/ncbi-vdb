@@ -29,6 +29,7 @@ TOP ?= $(abspath ../..)
 MODULE = test/vfs
 
 TEST_TOOLS = \
+    disable-remote \
     test-caching \
     test-vfsmanager \
     test-path-c \
@@ -78,6 +79,19 @@ PATHTEST_LIB = \
 	-sncbi-vdb \
 
 $(TEST_BINDIR)/test-path: $(PATHTEST_OBJ)
+	$(LP) --exe -o $@ $^ $(PATHTEST_LIB)
+
+#----------------------------------------------------------------
+# disable-remote
+#
+
+DISABLE_SRC = \
+	disable-remote 
+
+DISABLE_OBJ = \
+	$(addsuffix .$(OBJX),$(DISABLE_SRC))
+
+$(TEST_BINDIR)/disable-remote: $(DISABLE_OBJ)
 	$(LP) --exe -o $@ $^ $(PATHTEST_LIB)
 
 #----------------------------------------------------------------

@@ -3743,13 +3743,6 @@ rc_t VResolverLoadApps ( VResolver *self, Vector *algs, const String *root,
     return rc;
 }
 
-typedef uint32_t EDisabled;
-enum {
-    eDisabledSet,
-    eEnabledSet,
-    eDisabledNotSet,
-};
-
 /* LoadRepo
  *
  *    repository
@@ -3770,29 +3763,21 @@ enum {
 static
 rc_t VResolverLoadRepo ( VResolver *self, Vector *algs, const KConfigNode *repo,
     const String *ticket, bool cache_capable, bool protected,
-    EDisabled isDisabled, bool cacheEnabled )
+    bool isDisabled, bool cacheEnabled )
 {
     rc_t rc = 0;
     const KConfigNode *node;
     bool resolver_cgi;
 
     /* test for disabled repository */
-    bool disabled = false;
-    switch (isDisabled) {
-        case eDisabledSet:
-            disabled = true;
-            break;
-        case eEnabledSet:
-            disabled = false;
-            break;
-        case eDisabledNotSet:
-            rc = KConfigNodeOpenNodeRead ( repo, & node, "disabled" );
-            if ( rc == 0 )
-            {
-                rc = KConfigNodeReadBool ( node, & disabled );
-                KConfigNodeRelease ( node );
-            }
-            break;
+    bool disabled = isDisabled;
+
+    if ( ! disabled ) {
+        rc = KConfigNodeOpenNodeRead ( repo, & node, "disabled" );
+        if ( rc == 0 ) {
+            rc = KConfigNodeReadBool ( node, & disabled );
+            KConfigNodeRelease ( node );
+        }
     }
 
     /* don't bother recording local, disabled repositories */
@@ -3905,7 +3890,7 @@ rc_t VResolverLoadRepo ( VResolver *self, Vector *algs, const KConfigNode *repo,
 static
 rc_t VResolverLoadNamedRepo ( VResolver *self, Vector *algs,
     const KConfigNode *sub, const String *ticket, const char *name,
-    bool cache_capable, bool protected, EDisabled disabled, bool cacheEnabled )
+    bool cache_capable, bool protected, bool disabled, bool cacheEnabled )
 {
     const KConfigNode *repo;
     rc_t rc = KConfigNodeOpenNodeRead ( sub, & repo, "%s", name );
@@ -3934,7 +3919,7 @@ rc_t VResolverLoadNamedRepo ( VResolver *self, Vector *algs,
 static
 rc_t VResolverLoadSubCategory ( VResolver *self, Vector *algs,
     const KConfigNode *kfg, const String *ticket, const char *sub_path,
-    bool cache_capable, bool protected, EDisabled disabled, bool cacheEnabled )
+    bool cache_capable, bool protected, bool disabled, bool cacheEnabled )
 {
     const KConfigNode *sub;
     rc_t rc = KConfigNodeOpenNodeRead ( kfg, & sub, "%s", sub_path );
@@ -3969,8 +3954,7 @@ rc_t VResolverLoadSubCategory ( VResolver *self, Vector *algs,
  */
 static
 rc_t VResolverLoadProtected ( VResolver *self, const KConfigNode *kfg,
-    const char *rep_name,
-    bool cache_capable, EDisabled disabled, bool cacheEnabled )
+    const char *rep_name, bool cache_capable, bool disabled, bool cacheEnabled )
 {
     const KConfigNode *repo;
     rc_t rc = KConfigNodeOpenNodeRead ( kfg, & repo, "user/protected/%s", rep_name );
@@ -4323,10 +4307,10 @@ rc_t VResolverForceUserFiles ( VResolver *self )
     return rc;
 }
 
-static EDisabled _KConfigNodeRepoDisabled(
+static bool _KConfigNodeRepoDisabled(
     const KConfigNode *self, const char *name)
 {
-    EDisabled isDisabled = eDisabledNotSet;
+    bool isDisabled = false;
     const KConfigNode *node = NULL;
     rc_t rc = KConfigNodeOpenNodeRead(self, &node, "%s/disabled", name);
     bool disabled = false;
@@ -4334,7 +4318,7 @@ static EDisabled _KConfigNodeRepoDisabled(
         rc = KConfigNodeReadBool(node, &disabled);
     }
     if (rc == 0) {
-        isDisabled = disabled ? eDisabledSet : eEnabledSet;
+        isDisabled = disabled;
     }
     KConfigNodeRelease(node);
     return isDisabled;
@@ -4353,9 +4337,9 @@ static rc_t VResolverLoad(VResolver *self, const KRepository *protected,
     {
         bool userCacheEnabled = true;
 
-        EDisabled remoteDisabled = _KConfigNodeRepoDisabled(kfg, "remote");
-        EDisabled siteDisabled = _KConfigNodeRepoDisabled(kfg, "site");
-        EDisabled userDisabled = _KConfigNodeRepoDisabled(kfg, "user");
+        bool remoteDisabled = _KConfigNodeRepoDisabled(kfg, "remote");
+        bool siteDisabled = _KConfigNodeRepoDisabled(kfg, "site");
+        bool userDisabled = _KConfigNodeRepoDisabled(kfg, "user");
 
         /* check to see what the current directory is */
         char buffer [ 256 ];
